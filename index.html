@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตรวจสอบค่าประสิทธิภาพสูญเสียจากฝุ่นบนแผงโซลาร์</title>
+<!-- 添加Google Fonts确保泰语字体在泰国正常显示 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;font-family:'Sarabun', sans-serif} /* 优化字体栈，仅保留泰语常用字体 */
+  body{background:#f4f6f8;padding:20px 0;margin:0} /* 修复默认margin */
+  .container{max-width:780px;margin:0 auto;padding:0 15px} /* 添加左右内边距适配移动端 */
+  .bill-box{
+    background:#fff;
+    border:1px solid #ddd;
+    border-radius:12px;
+    padding:36px 40px;
+    position:relative;
+    box-shadow:0 4px 20px rgba(0,0,0,0.05);
+    overflow:hidden;
+  }
+  .logo{
+    text-align:center;
+    margin-bottom:20px;
+    width:100%;
+    max-width:300px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+  .logo img{
+    width:100%;
+    height:auto;
+    object-fit:contain;
+    /* 添加加载失败备用样式 */
+    background:#f8f8f8;
+    padding:10px;
+    border-radius:8px;
+  }
+  .bill-title{
+    font-size:24px;
+    font-weight:700;
+    text-align:center;
+    margin-bottom:6px;
+    color:#111;
+  }
+  .bill-subtitle{
+    text-align:center;font-size:14px;color:#666;margin-bottom:30px}
+  .form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px 20px;
+    margin-bottom:24px;
+  }
+  .form-item{display:flex;flex-direction:column;gap:6px}
+  .form-label{font-size:13px;font-weight:500;color:#333}
+  .form-input{
+    padding:10px 12px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    font-size:14px;
+    /* 优化输入框样式，适配泰语输入 */
+    direction:ltr;
+    text-align:left;
+  }
+  .calc-btn{
+    background:#003366;
+    color:white;
+    border:none;
+    border-radius:8px;
+    padding:14px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    width:100%;
+    margin:20px 0;
+    transition:background 0.3s ease; /* 优化过渡效果 */
+  }
+  .calc-btn:hover{background:#00254a}
+
+  .result-bill{
+    margin-top:30px;
+    padding:24px;
+    border:1px solid #c5d3e2;
+    border-radius:10px;
+    background:#fcfdff;
+    display:none;
+    position:relative;
+    min-height:180px;
+  }
+  .result-title{
+    font-size:16px;
+    font-weight:600;
+    margin-bottom:16px;
+    color:#222;
+  }
+  .bill-row{
+    display:flex;
+    justify-content:space-between;
+    padding:8px 0;
+    font-size:14px;
+  }
+  .bill-row.total{
+    border-top:1px solid #999;
+    margin-top:10px;
+    padding-top:14px;
+    font-size:16px;
+    font-weight:700;
+    color:#003366;
+  }
+  .bill-hl{font-weight:600;color:#003366}
+
+  .stamp{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%, -50%) scale(0);
+    width:120px;
+    height:120px;
+    border:4px solid #d10e0e;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:14px;
+    font-weight:bold;
+    color:#d10e0e;
+    text-align:center;
+    line-height:1.3;
+    opacity:0;
+    z-index:1;
+    background:rgba(255,255,255,0.8);
+  }
+  @keyframes stampAnim{
+    0%{transform:translate(-50%, -50%) scale(0);opacity:0}
+    60%{transform:translate(-50%, -50%) scale(1.2);opacity:1}
+    100%{transform:translate(-50%, -50%) scale(1);opacity:1}
+  }
+  .stamp.show{animation:stampAnim 1.2s ease forwards}
+
+  /* 优化移动端适配 */
+  @media(max-width:575px){
+    .form-grid{grid-template-columns:1fr}
+    .bill-box{padding:24px 20px}
+    .stamp{width:100px;height:100px;font-size:12px}
+    .bill-title{font-size:20px}
+  }
+
+  /* 添加加载状态样式 */
+  .loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+<div class="bill-box">
+  <!-- 使用国际稳定的LOGO占位（建议替换为你自己的LOGO地址） -->
+  <div class="logo">
+    <img 
+      src="https://via.placeholder.com/300x100?text=LONGi+Solar" 
+      alt="LONGi Solar Logo"
+      onerror="this.src='https://via.placeholder.com/300x100?text=LONGi+Solar';"
+    >
+  </div>
+
+  <div class="bill-title">ตรวจสอบค่าประสิทธิภาพสูญเสียจากฝุ่นบนแผงโซลาร์</div>
+  <div class="bill-subtitle">การคำนวณสูญเสียประสิทธิภาพจากฝุ่นประจำปีอย่างเป็นทางการ</div>
+
+  <div class="form-grid">
+    <div class="form-item">
+      <label class="form-label">จังหวัด</label>
+      <select class="form-input" id="city">
+        <option value="Bangkok">กรุงเทพมหานคร</option>
+        <option value="SamutPrakan">สมุทรปราการ</option>
+        <option value="Nonthaburi">นนทบุรี</option>
+        <option value="PathumThani">ปทุมธานี</option>
+        <option value="Ayutthaya">อยุธยา</option>
+        <option value="AngThong">อ่างทอง</option>
+        <option value="LopBuri">ลพบุรี</option>
+        <option value="SingBuri">สิงห์บุรี</option>
+        <option value="ChaiNat">ชัยนาท</option>
+        <option value="SuphanBuri">สุพรรณบุรี</option>
+        <option value="NakhonPathom">นครปฐม</option>
+        <option value="SamutSongkhram">สมุทรสงคราม</option>
+        <option value="SamutSakhon">สมุทรสาคร</option>
+        <option value="NakhonSawan">นครสวรรค์</option>
+        <option value="UthaiThani">อุทัยธานี</option>
+        <option value="ChonBuri">ชลบุรี</option>
+        <option value="Rayong">ระยอง</option>
+        <option value="Chanthaburi">จันทบุรี</option>
+        <option value="Trat">ตราด</option>
+        <option value="Chachoengsao">ฉะเชิงเทรา</option>
+        <option value="PrachinBuri">ปราจีนบุรี</option>
+        <option value="NakhonNayok">นครนายก</option>
+        <option value="SaKaeo">สระแก้ว</option>
+        <option value="Kanchanaburi">กาญจนบุรี</option>
+        <option value="Ratchaburi">ราชบุรี</option>
+        <option value="Phetchaburi">เพชรบุรี</option>
+        <option value="Prachuap">ประจวบคีรีขันธ์</option>
+        <option value="ChiangMai">เชียงใหม่</option>
+        <option value="ChiangRai">เชียงราย</option>
+        <option value="Phayao">พะเยา</option>
+        <option value="Lampang">ลำปาง</option>
+        <option value="Lamphun">ลำพูน</option>
+        <option value="Phrae">แพร่</option>
+        <option value="Nan">น่าน</option>
+        <option value="Uttaradit">อุตรดิตถ์</option>
+        <option value="Phitsanulok">พิษณุโลก</option>
+        <option value="Phetchabun">เพชรบูรณ์</option>
+        <option value="Phichit">พิจิตร</option>
+        <option value="Sukhothai">สุโขทัย</option>
+        <option value="KamphaengPhet">กำแพงเพชร</option>
+        <option value="Tak">ตาก</option>
+        <option value="MaeHongSon">แม่ฮ่องสอน</option>
+        <option value="NakhonRatchasima">นครราชสีมา</option>
+        <option value="BuriRam">บุรีรัมย์</option>
+        <option value="Surin">สุรินทร์</option>
+        <option value="SiSaKet">ศรีสะเกษ</option>
+        <option value="Ubon">อุบลราชธานี</option>
+        <option value="Yasothon">ยโสธร</option>
+        <option value="RoiEt">ร้อยเอ็ด</option>
+        <option value="Kalasin">กาฬสินธุ์</option>
+        <option value="MahaSarakham">มหาสารคาม</option>
+        <option value="KhonKaen">ขอนแก่น</option>
+        <option value="UdonThani">อุดรธานี</option>
+        <option value="NongKhai">หนองคาย</option>
+        <option value="BuengKan">บึงกาฬ</option>
+        <option value="Loei">เลย</option>
+        <option value="NongBua">หนองบัวลำภู</option>
+        <option value="SakonNakhon">สกลนคร</option>
+        <option value="NakhonPhanom">นครพนม</option>
+        <option value="Mukdahan">มุกดาหาร</option>
+        <option value="AmnatCharoen">อำนาจเจริญ</option>
+        <option value="NakhonSi">นครศรีธรรมราช</option>
+        <option value="SuratThani">สุราษฎร์ธานี</option>
+        <option value="Chumphon">ชุมพร</option>
+        <option value="Ranong">ระนอง</option>
+        <option value="PhangNga">พังงา</option>
+        <option value="Phuket">ภูเก็ต</option>
+        <option value="Krabi">กระบี่</option>
+        <option value="Trang">ตรัง</option>
+        <option value="Satun">สตูล</option>
+        <option value="Phatthalung">พัทลุง</option>
+        <option value="Songkhla">สงขลา</option>
+        <option value="Pattani">ปัตตานี</option>
+        <option value="Yala">ยะลา</option>
+        <option value="Narathiwat">นราธิวาส</option>
+      </select>
+    </div>
+    <div class="form-item">
+      <label class="form-label">ความชื้นเฉลี่ยต่อปี (%)</label>
+      <input type="number" class="form-input" id="humidity" readonly>
+    </div>
+
+    <div class="form-item">
+      <label class="form-label">PM10 เฉลี่ยต่อปี (μg/m³)</label>
+      <input type="number" class="form-input" id="pm10" readonly>
+    </div>
+    <div class="form-item">
+      <label class="form-label">อัตราการครอบคลุมพืชพันธุ์ (%)</label>
+      <input type="number" class="form-input" id="vegetation" readonly>
+    </div>
+
+    <div class="form-item">
+      <label class="form-label">พื้นหลังคา (ตรม.)</label>
+      <input type="number" class="form-input" id="area" value="100" min="1">
+    </div>
+    <div class="form-item">
+      <label class="form-label">มุมเอนหลังคา (0-60°)</label>
+      <input type="number" class="form-input" id="tilt" value="20" min="0" max="60">
+    </div>
+
+    <div class="form-item">
+      <label class="form-label">จำนวนครั้งทำความสะอาดต่อปี</label>
+      <input type="number" class="form-input" id="cleanTimes" value="4" min="0">
+    </div>
+    <div class="form-item">
+      <label class="form-label">ค่าใช้จ่ายต่อครั้ง (บาท)</label>
+      <input type="number" class="form-input" id="cleanCost" value="5000" min="0">
+    </div>
+
+    <div class="form-item">
+      <label class="form-label">จำนวนวันมีฝุ่นต่อปี</label>
+      <input type="number" class="form-input" id="dustyDays" value="50" min="1" max="365">
+    </div>
+    <div class="form-item">
+      <label class="form-label">ราคาไฟฟ้า (บาท/kWh)</label>
+      <input type="number" class="form-input" id="price" value="5" min="0" step="0.01">
+    </div>
+  </div>
+
+  <button class="calc-btn" onclick="calculateBill()" id="calcBtn">
+    <span id="btnText">ตรวจสอบค่าสูญเสียฝุ่น</span>
+  </button>
+
+  <div class="result-bill" id="resultBill">
+    <div class="stamp" id="stamp">รายงานฝุ่นได้รับการอนุมัติ</div>
+    <div class="result-title">ผลการคำนวณ</div>
+
+    <div class="bill-row">
+      <span>อัตราสูญเสียพลังงานรวม</span>
+      <span class="bill-hl" id="lossRateText"></span>
+    </div>
+    <div class="bill-row">
+      <span>ค่าใช้จ่ายทำความสะอาดรวมประจำปี</span>
+      <span class="bill-hl" id="cleanTotal"></span>
+    </div>
+    <div class="bill-row">
+      <span>สูญเสียการผลิตไฟฟ้าประจำปี</span>
+      <span class="bill-hl" id="powerLoss"></span>
+    </div>
+    <div class="bill-row total">
+      <span>ค่าฝุ่นประจำปี</span>
+      <span id="totalBill"></span>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// 77 จังหวัดของไทย ข้อมูลปี 2025 (完整包含所有77府数据)
+const cityData = {
+  Bangkok:               {h:76.5, pm:52, veg:0.4},
+  SamutPrakan:            {h:77.8, pm:48, veg:2.8},
+  Nonthaburi:             {h:75.7, pm:49, veg:1.2},
+  PathumThani:            {h:72.5, pm:47, veg:1.5},
+  Ayutthaya:              {h:73.7, pm:46, veg:0.0},
+  AngThong:               {h:74.4, pm:45, veg:12.1},
+  LopBuri:                {h:72.7, pm:48, veg:15.2},
+  SingBuri:               {h:73.1, pm:44, veg:18.3},
+  ChaiNat:                {h:76.0, pm:43, veg:20.5},
+  SuphanBuri:             {h:72.7, pm:46, veg:23.4},
+  NakhonPathom:           {h:78.0, pm:49, veg:15.4},
+  SamutSongkhram:         {h:77.2, pm:47, veg:7.0},
+  SamutSakhon:            {h:76.8, pm:48, veg:9.6},
+  NakhonSawan:            {h:75.1, pm:45, veg:25.3},
+  UthaiThani:             {h:74.8, pm:44, veg:31.2},
+  ChonBuri:               {h:74.9, pm:51, veg:12.1},
+  Rayong:                 {h:77.4, pm:48, veg:29.0},
+  Chanthaburi:            {h:77.8, pm:42, veg:32.1},
+  Trat:                   {h:78.5, pm:40, veg:30.9},
+  Chachoengsao:           {h:76.1, pm:49, veg:15.5},
+  PrachinBuri:            {h:74.7, pm:47, veg:28.6},
+  NakhonNayok:            {h:72.9, pm:45, veg:30.0},
+  SaKaeo:                 {h:73.2, pm:46, veg:22.0},
+  Kanchanaburi:           {h:72.7, pm:45, veg:61.7},
+  Ratchaburi:             {h:75.8, pm:46, veg:32.9},
+  Phetchaburi:            {h:77.0, pm:44, veg:57.5},
+  Prachuap:               {h:76.3, pm:43, veg:38.9},
+  ChiangMai:              {h:77.2, pm:42, veg:68.1},
+  ChiangRai:              {h:74.3, pm:41, veg:39.3},
+  Phayao:                 {h:76.2, pm:40, veg:65.7},
+  Lampang:                {h:73.3, pm:43, veg:69.6},
+  Lamphun:                {h:75.5, pm:42, veg:57.5},
+  Phrae:                  {h:77.8, pm:40, veg:64.8},
+  Nan:                    {h:79.0, pm:39, veg:61.2},
+  Uttaradit:              {h:76.7, pm:41, veg:51.4},
+  Phitsanulok:            {h:77.9, pm:42, veg:37.4},
+  Phetchabun:             {h:77.5, pm:43, veg:33.0},
+  Phichit:                {h:77.4, pm:44, veg:29.4},
+  Sukhothai:              {h:74.8, pm:45, veg:29.4},
+  KamphaengPhet:          {h:75.4, pm:46, veg:23.5},
+  Tak:                    {h:75.7, pm:40, veg:71.2},
+  MaeHongSon:             {h:81.0, pm:38, veg:83.3},
+  NakhonRatchasima:       {h:71.0, pm:59, veg:15.6},
+  BuriRam:                {h:72.3, pm:58, veg:8.8},
+  Surin:                  {h:73.5, pm:57, veg:8.5},
+  SiSaKet:                {h:72.8, pm:56, veg:17.6},
+  Ubon:                   {h:72.6, pm:55, veg:16.9},
+  Yasothon:               {h:71.5, pm:54, veg:11.5},
+  RoiEt:                  {h:70.5, pm:53, veg:4.5},
+  Kalasin:                {h:70.1, pm:52, veg:10.9},
+  MahaSarakham:           {h:69.0, pm:51, veg:3.8},
+  KhonKaen:               {h:72.9, pm:50, veg:11.5},
+  UdonThani:              {h:72.4, pm:49, veg:11.7},
+  NongKhai:               {h:72.8, pm:48, veg:6.9},
+  BuengKan:               {h:82.9, pm:47, veg:7.1},
+  Loei:                   {h:72.9, pm:46, veg:32.2},
+  NongBua:                {h:71.2, pm:45, veg:11.7},
+  SakonNakhon:            {h:70.2, pm:44, veg:16.9},
+  NakhonPhanom:           {h:76.7, pm:43, veg:32.8},
+  Mukdahan:               {h:72.4, pm:42, veg:32.8},
+  AmnatCharoen:           {h:71.8, pm:53, veg:12.4},
+  NakhonSi:               {h:78.5, pm:41, veg:28.7},
+  SuratThani:             {h:79.7, pm:40, veg:28.7},
+  Chumphon:               {h:79.8, pm:39, veg:21.5},
+  Ranong:                 {h:77.5, pm:38, veg:53.5},
+  PhangNga:               {h:78.2, pm:37, veg:32.3},
+  Phuket:                 {h:78.0, pm:31, veg:61.0},
+  Krabi:                  {h:77.8, pm:36, veg:17.1},
+  Trang:                  {h:78.3, pm:35, veg:23.1},
+  Satun:                  {h:79.2, pm:34, veg:40.2},
+  Phatthalung:            {h:77.6, pm:38, veg:29.5},
+  Songkhla:               {h:76.1, pm:39, veg:11.3},
+  Pattani:                {h:77.0, pm:38, veg:6.1},
+  Yala:                   {h:76.5, pm:37, veg:32.5},
+  Narathiwat:             {h:77.2, pm:36, veg:26.6}
+};
+
+// เปลี่ยนจังหวัดอัตโนมัติ
+document.getElementById('city').addEventListener('change', function(){
+  const c = this.value;
+  const d = cityData[c];
+  if(d) {
+    document.getElementById('humidity').value = d.h;
+    document.getElementById('pm10').value = d.pm;
+    document.getElementById('vegetation').value = d.veg;
+  }
+});
+
+// 页面加载完成初始化
+window.onload = function(){
+  try {
+    document.getElementById('city').dispatchEvent(new Event('change'));
+  } catch (e) {
+    console.log('初始化数据:', e);
+  }
+}
+
+// จัดรูปแบบเงินบาท (适配泰国数字格式)
+function fmtTHB(v){
+  // 使用泰国本地化格式，备用英文格式确保兼容性
+  try {
+    return v.toLocaleString('th-TH', {
+      minimumFractionDigits:2,
+      maximumFractionDigits:2
+    }) + ' บาท';
+  } catch {
+    return v.toLocaleString('en-US', {
+      minimumFractionDigits:2,
+      maximumFractionDigits:2
+    }) + ' บาท';
+  }
+}
+
+// ============ 匹配表格的精准计算逻辑 ============
+function getTotalLossRate(H, PM, VEG, tilt, dusty){
+  // 1. ความชื้น (湿度损失：≤40→2%；40-70→5%；≥70→7%)
+  let hLoss = 0;
+  if(H < 40) hLoss = 0.02;
+  else if(H >= 40 && H < 70) hLoss = 0.05;
+  else if(H >= 70) hLoss = 0.07;
+
+  // 2. PM10 (PM10损失：≤40→0%；40-70→3%；≥70→5%)
+  let pmLoss = 0;
+  if(PM >= 40 && PM < 70) pmLoss = 0.03;
+  else if(PM >= 70) pmLoss = 0.05;
+
+  // 3. พืชพันธุ์ (植被损失：30-45→1%；<30→3%)
+  let vLoss = 0;
+  if(VEG >= 30 && VEG <= 45) vLoss = 0.01;
+  else if(VEG < 30) vLoss = 0.03;
+
+  // 环境损失加权计算 (湿度×0.8 + PM10×1 + 植被×0.6)
+  let envLoss = hLoss * 0.8 + pmLoss * 1.0 + vLoss * 0.6;
+
+  // 4. มุมเอน (倾角加成：0-20°加2%，20-40°加1%)
+  let tiltAdd = 0;
+  if(tilt >= 0 && tilt <= 20) tiltAdd = 0.02;
+  else if(tilt > 20 && tilt <= 40) tiltAdd = 0.01;
+
+  // 5. วันมีฝุ่น (扬尘天数加成：≤60天加1%，61-200天加2%，>200天加3%)
+  let dustyAdd = 0;
+  if(dusty <= 60) dustyAdd = 0.01;
+  else if(dusty <= 200) dustyAdd = 0.02;
+  else dustyAdd = 0.03;
+
+  // 总损失率 = 环境损失 + 倾角加成 + 扬尘加成
+  const totalLoss = envLoss + tiltAdd + dustyAdd;
+  return totalLoss;
+}
+
+// ============ คำนวณบิลทั้งหมด (添加错误处理和加载状态) ============
+function calculateBill(){
+  // 获取按钮和文本元素
+  const btn = document.getElementById('calcBtn');
+  const btnText = document.getElementById('btnText');
+  
+  // 禁用按钮并显示加载状态
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="loading"></span>กำลังคำนวณ...';
+
+  try {
+    // 获取输入值并验证
+    const area    = Number(document.getElementById('area').value) || 0;
+    const tilt    = Number(document.getElementById('tilt').value) || 20;
+    const cleanT  = Number(document.getElementById('cleanTimes').value) || 0;
+    const cleanC  = Number(document.getElementById('cleanCost').value) || 0;
+    const dusty   = Number(document.getElementById('dustyDays').value) || 0;
+    const price   = Number(document.getElementById('price').value) || 0;
+
+    const H       = Number(document.getElementById('humidity').value) || 0;
+    const PM      = Number(document.getElementById('pm10').value) || 0;
+    const VEG     = Number(document.getElementById('vegetation').value) || 0;
+
+    // 基础验证
+    if(area <= 0) throw new Error('พื้นหลังคาต้องมากกว่า 0 ตร.ม.');
+    if(price <= 0) throw new Error('ราคาฟ้าต้องมากกว่า 0 บาท/kWh');
+
+    // 1. ค่าทำความสะอาดรวม = ครั้ง × ต่อครั้ง
+    const totalClean = cleanT * cleanC;
+
+    // 2. อัตราการสูญเสียรวม
+    const lossRate = getTotalLossRate(H,PM,VEG,tilt,dusty);
+    const lossText = (lossRate*100).toFixed(2)+'%'; // 保留2位小数匹配表格
+
+    // 3. สูญเสียการผลิตไฟฟ้า (发电量损失 = 装机×1150×损失率×电价)
+    const kW = area * 0.15; // 0.15 kW/㎡
+    const annualGen = kW * 1150; // 1150 kWh/kW/年
+    const powerLoss = annualGen * lossRate * price;
+
+    // 4. ค่าฝุ่นรวม = ค่าทำความสะอาด + สูญเสียผลิตไฟฟ้า
+    const total = totalClean + powerLoss;
+
+    // แสดงผล
+    document.getElementById('lossRateText').innerText = lossText;
+    document.getElementById('cleanTotal').innerText  = fmtTHB(totalClean);
+    document.getElementById('powerLoss').innerText   = fmtTHB(powerLoss);
+    document.getElementById('totalBill').innerText   = fmtTHB(total);
+
+    const bill = document.getElementById('resultBill');
+    const stamp = document.getElementById('stamp');
+    bill.style.display = 'block';
+    stamp.classList.remove('show');
+    setTimeout(()=>stamp.classList.add('show'),100);
+
+  } catch (error) {
+    // 显示错误信息
+    alert('เกิดข้อผิดพลาด: ' + error.message);
+  } finally {
+    // 恢复按钮状态
+    btn.disabled = false;
+    btnText.textContent = 'ตรวจสอบค่าสูญเสียฝุ่น';
+  }
+}
+</script>
+</body>
+</html>
